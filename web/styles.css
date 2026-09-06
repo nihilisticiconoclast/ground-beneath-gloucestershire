@@ -86,7 +86,9 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--lias); outline-o
   width: 100%; height: 22px;
   /* width in the rotated frame = the track height; set from JS via --track-h */
   width: var(--track-h, 300px);
-  transform: translate(-50%, -50%) rotate(90deg);
+  /* Anticlockwise, so the input's max end (the surface) sits at the top of the
+     track like the ticks do; clockwise put "surface" beside the lowest tick. */
+  transform: translate(-50%, -50%) rotate(-90deg);
   margin: 0; background: transparent; cursor: ns-resize; appearance: none; -webkit-appearance: none;
 }
 .ruler-input::-webkit-slider-runnable-track { height: 2px; background: transparent; }

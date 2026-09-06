@@ -19,9 +19,13 @@ known-bad fixture. `scripts/make_sample_voxels.py` regenerates
 `web/data/sample_voxels.json` byte for byte. The viewer rendered in headless
 Chromium (software WebGL2) against that file: a legend of 7 classes summing
 to 33,212 voxels, the peel and certainty sliders and the hover probe all
-responded, and the only console error was a missing favicon. Three.js had to
-be served from local copies for that check because the sandbox proxy reset
-Chromium's CDN connections; the unpkg URLs themselves answered 200 to curl.
+responded, and the only console error was a missing favicon. The same check
+showed the peel slider inverted against its ruler: at "surface" the thumb sat
+beside the 40 m tick. Rotating the input anticlockwise instead of clockwise
+fixed it; at 80% the readout says 100 m AOD and the thumb sits on the 100 m
+tick. Three.js had to be served from local copies for that check because the
+sandbox proxy reset Chromium's CDN connections; the unpkg URLs themselves
+answered 200 to curl.
 
 **Chosen.**
 
