@@ -1,0 +1,11 @@
+{
+  "total_depth_m": 12.5,
+  "units_as_written": "m",
+  "intervals": [
+    {"top_m": 0.0, "base_m": 0.4, "raw_description": "Dark brown sandy TOPSOIL", "lith_class": "TOPSOIL", "confidence": 0.96},
+    {"top_m": 0.4, "base_m": 3.3, "raw_description": "Firm brown mottled grey silty CLAY", "lith_class": "CLAY", "confidence": 0.9},
+    {"top_m": 3.3, "base_m": 7.8, "raw_description": "Grey slightly sandy gravelly CLAY", "lith_class": "CLAY", "confidence": 0.85},
+    {"top_m": 7.8, "base_m": 12.5, "raw_description": "Weak thinly bedded blue-grey MUDSTONE", "lith_class": "MUDSTONE", "confidence": 0.7}
+  ],
+  "notes": ""
+}

@@ -1,0 +1,9 @@
+{
+  "total_depth_m": 6.0,
+  "units_as_written": "unknown",
+  "intervals": [
+    {"top_m": 0.0, "base_m": 1.0, "raw_description": "Topsoil?", "lith_class": "TOPSOIL", "confidence": 0.4},
+    {"top_m": 1.0, "base_m": 6.0, "raw_description": "illegible", "lith_class": "UNKNOWN", "confidence": 0.2}
+  ],
+  "notes": "scan very faint"
+}

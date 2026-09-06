@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Ground Beneath Gloucestershire</title>
+  <meta name="description" content="A 3D lithology model of the ground beneath the Stroud valleys, reconstructed from scanned BGS borehole logs, with its uncertainty shown rather than hidden.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="stage">
+    <canvas id="scene" aria-label="Three-dimensional model of the ground beneath the Stroud pilot tile. Drag to orbit, scroll to zoom."></canvas>
+
+    <header class="masthead">
+      <h1>The ground beneath Gloucestershire</h1>
+      <p id="model-name" class="model-name">Loading model…</p>
+      <p id="synthetic-flag" class="synthetic" hidden></p>
+    </header>
+
+    <!-- The depth ruler is the one bold element: it reads like the margin of a
+         borehole log and doubles as the peel control. -->
+    <section class="ruler" aria-labelledby="ruler-label">
+      <p id="ruler-label" class="ruler-label">Peel the ground away down to</p>
+      <div class="ruler-track">
+        <input id="peel" class="ruler-input" type="range" min="0" max="1000" value="1000" step="1"
+               aria-label="Peel depth: hide everything above this elevation" aria-valuetext="surface">
+        <ol id="ruler-ticks" class="ruler-ticks" aria-hidden="true"></ol>
+      </div>
+      <p class="ruler-readout"><span id="peel-readout">surface</span></p>
+    </section>
+
+    <section class="certainty" aria-labelledby="certainty-label">
+      <label id="certainty-label" for="entropy">Show voxels the model is at least this sure about</label>
+      <div class="certainty-row">
+        <input id="entropy" type="range" min="0" max="100" value="100" step="1"
+               aria-valuetext="showing everything">
+        <output id="entropy-readout" for="entropy">everything</output>
+      </div>
+      <p class="hint">Move it left and the guesses disappear first.</p>
+    </section>
+
+    <section class="legend" aria-label="Lithology classes">
+      <ol id="legend-list"></ol>
+    </section>
+
+    <aside id="probe" class="probe" hidden aria-live="polite">
+      <p class="probe-class"><span id="probe-class"></span></p>
+      <p class="probe-detail"><span id="probe-coords"></span></p>
+      <p class="probe-detail">certainty <span id="probe-certainty"></span></p>
+    </aside>
+
+    <p class="credit">
+      Borehole index and scans: British Geological Survey, Open Government Licence
+      (Contains British Geological Survey materials © UKRI 2026).
+      <a href="https://github.com/nihilisticiconoclast/ground-beneath-gloucestershire">Source and method</a>.
+    </p>
+  </main>
+
+  <script type="module" src="viewer.js"></script>
+</body>
+</html>

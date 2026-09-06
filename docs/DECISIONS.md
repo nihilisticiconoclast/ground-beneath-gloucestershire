@@ -4,6 +4,52 @@ Short records: problem, what was measured, what was chosen, what the
 acceptance test is. Add to the top. Abandoned approaches go here too, with
 what they cost.
 
+## 2026-09-06 — Repository unpacked; viewer published from CI
+
+**Problem.** The repository held the project as an uploaded zip plus three
+loose copies of files from inside it, so nothing ran from a checkout, and the
+GitHub Pages site (already switched on, source "deploy from a branch") served
+a Jekyll rendering of a one-line README.
+
+**Measured.** From a checkout of the unpacked layout on Python 3.11:
+`pytest` 49 passed (the README said 47; corrected). The CI smoke step
+reproduced the Stage 2 numbers exactly (40 boreholes, 2,276 points, 97.7% vs
+84.7%, +13.0 pp, 31,045 below-ground voxels), and the eval gate fired on the
+known-bad fixture. `scripts/make_sample_voxels.py` regenerates
+`web/data/sample_voxels.json` byte for byte. The viewer rendered in headless
+Chromium (software WebGL2) against that file: a legend of 7 classes summing
+to 33,212 voxels, the peel and certainty sliders and the hover probe all
+responded, and the only console error was a missing favicon. Three.js had to
+be served from local copies for that check because the sandbox proxy reset
+Chromium's CDN connections; the unpkg URLs themselves answered 200 to curl.
+
+**Chosen.**
+
+- Bundle contents moved to the repository root; the zip, the loose duplicates
+  and the empty `{src/...}` directory tree (a shell brace-expansion accident
+  inside the zip) removed.
+- Pages stays a CI deployment of `web/` after the tests pass, as designed.
+  Changes to `ci.yml`: `workflow_dispatch`, so a human can publish
+  deliberately; `cache-dependency-path: pyproject.toml`, since setup-python's
+  pip cache looks for `**/requirements.txt` by default and there is none;
+  Pages permissions scoped to the `pages` job; a concurrency group so deploys
+  never overlap; the post-deploy check retries for up to three minutes and
+  downloads to files rather than piping into `head`/`grep -q`, so a closed
+  pipe cannot make `curl` report failure.
+- The Pages source must be "GitHub Actions". `configure-pages` is asked to
+  create the site if none exists, and the README records the one-time
+  settings step.
+
+**Acceptance test.** The `pages` job's last step: the live URL serves a page
+containing "The ground beneath Gloucestershire", and `data/sample_voxels.json`
+starts with `"synthetic":true`. Not yet observed: the job runs on `main`, and
+this change was made on a branch.
+
+**Cost of anything abandoned.** Nothing abandoned. Not verified here: the
+viewer loading three.js from unpkg end to end in a browser (only each half
+separately, see above), and the Pages source switching on the first
+workflow deployment rather than needing the settings change by hand.
+
 ## 2026-09-06 — Stage 2 model and MCP server
 
 **Problem.** Turn interval logs into a 3D model whose uncertainty is real,

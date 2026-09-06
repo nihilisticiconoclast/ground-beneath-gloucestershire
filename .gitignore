@@ -1,0 +1,24 @@
+# local data: the database, raw scans, page renders, gold files, eval reports
+data/*
+!data/README.md
+!data/.gitkeep
+
+# python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# editors / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# secrets
+.env

@@ -1,0 +1,85 @@
+# The Ground Beneath Gloucestershire — run configuration.
+#
+# Everything the pipeline needs to know about *where* to look, *how fast* it is
+# allowed to ask, and *what number* counts as success lives here. Edit this file,
+# not the code, to change a run.
+
+[client]
+# BGS asks that automated clients identify themselves. Put a real contact in here
+# before your first run; it is sent as the User-Agent on every request.
+user_agent = "ground-beneath-gloucestershire/0.1 (+https://github.com/nihilisticiconoclast/ground-beneath-gloucestershire; contact: YOUR-EMAIL-HERE)"
+# Polite crawl. BGS's fair-use policy reserves the right to rate-limit or block
+# IPs that create "excessive load". 0.5 req/s is one request every two seconds.
+requests_per_second = 0.5
+# Hard cap on scan PDFs fetched in a single `gbg fetch-scans` invocation.
+# Raise deliberately, not by accident.
+max_scans_per_run = 50
+timeout_seconds = 60
+max_retries = 4
+
+[paths]
+db = "data/gbg.duckdb"
+raw_scans = "data/raw/scans"
+page_images = "data/derived/pages"
+extractions = "data/derived/extractions"
+gold = "data/gold"
+
+# Areas of interest, in British National Grid (EPSG:27700) metres:
+# [min_easting, min_northing, max_easting, max_northing].
+# The client converts to WGS84 for the API; the model works in BNG.
+
+[aoi.pilot]
+# ~5 x 5 km over Stroud (Stroud town centre is about SO 851 051 -> 385100, 205100).
+description = "Stroud pilot tile, 5 km square"
+bbox_bng = [382500, 202500, 387500, 207500]
+
+[aoi.stroud_valleys]
+description = "Stroud, Nailsworth, Chalford and the Frome valley"
+bbox_bng = [375000, 197000, 393000, 212000]
+
+[aoi.gloucestershire]
+description = "Whole-county envelope (generous rectangle, trimmed later)"
+bbox_bng = [350000, 175000, 430000, 245000]
+
+[extraction]
+# 'mock' replays fixtures (used by tests and CI). 'ollama' runs a local vision
+# model. 'anthropic' uses the Claude API if ANTHROPIC_API_KEY is set.
+provider = "mock"
+ollama_model = "qwen2.5vl:7b"
+ollama_url = "http://localhost:11434"
+anthropic_model = "claude-sonnet-4-6"
+render_dpi = 150
+
+[gates]
+# Stage 0 go/no-go, scored against AGS gold boreholes (see docs/GATES.md).
+# A boundary counts as recovered if a predicted boundary lies within
+# `boundary_tolerance_m` of the gold boundary.
+boundary_tolerance_m = 0.25
+min_boundary_recall = 0.85
+min_lithology_f1 = 0.80
+# Minimum number of gold boreholes before a gate result is considered meaningful.
+min_gold_boreholes = 20
+# Stage 2 (see docs/GATES.md): the interpolated model must beat the
+# nearest-borehole baseline by this many percentage points on leave-one-
+# borehole-out accuracy, and be calibrated: among voxels it calls >= 80% sure,
+# at least this fraction must be right.
+min_model_gain_pp = 5.0
+min_calibration_at_80 = 0.75
+min_model_boreholes = 30
+
+[model]
+# Kernel length scales in metres. Anisotropy (horizontal >> vertical) is the
+# one thing everyone agrees about layered ground. `gbg model --tune` searches
+# a small grid around these and records what it chose.
+length_h = 300.0
+length_v = 2.5
+prior_strength = 1.0
+# Total evidence weight below which a voxel is reported as unconstrained.
+min_evidence = 0.05
+# Voxel grid for baking. 125 m x 2.5 m over the 5 km pilot = 40 x 40 x ~30 voxels.
+cell_xy = 125.0
+cell_z = 2.5
+# Column discretisation step when turning intervals into training points.
+sample_step_m = 0.5
+# Where the viewer reads the baked model from.
+output = "web/data/model.json"

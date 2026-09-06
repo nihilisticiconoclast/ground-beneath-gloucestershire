@@ -1,0 +1,114 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # A manual run (Actions tab → ci → Run workflow) also deploys the viewer, so a
+  # human can publish deliberately without waiting for the next push to main.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          # There is no requirements.txt; without this the pip cache looks for
+          # one, finds nothing, and fails the job before anything is installed.
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev,mcp]"
+      - run: python -m pytest -q
+      - name: CLI smoke — model stage on a synthetic corpus
+        run: |
+          python - <<'EOF'
+          import sys; sys.path.insert(0, "tests")
+          from pathlib import Path
+          from test_model import flat_world
+          from gbg import db as dbm
+          from gbg.ags import GOLD_SOURCE
+          tmp = Path("/tmp/gbg-ci"); tmp.mkdir(exist_ok=True)
+          cfg = Path("config/gbg.toml").read_text().replace('db = "data/gbg.duckdb"', f'db = "{tmp}/gbg.duckdb"').replace('output = "web/data/model.json"', f'output = "{tmp}/model.json"')
+          (tmp / "gbg.toml").write_text(cfg)
+          con = dbm.connect(tmp / "gbg.duckdb")
+          for log in flat_world(40)[0].values():
+              dbm.replace_intervals(con, log, GOLD_SOURCE)
+          EOF
+          gbg model pilot -c /tmp/gbg-ci/gbg.toml --tune
+          test -s /tmp/gbg-ci/model.json
+      - name: Viewer syntax and wiring
+        run: |
+          node --check web/viewer.js
+          python scripts/make_sample_voxels.py
+          python -c "import json; json.load(open('web/data/sample_voxels.json'))"
+      # The eval gate on the committed fixtures must FAIL: fixture 1002 is a
+      # deliberately bad extraction. If this step ever passes, the gate is broken.
+      - name: Eval gate fires on known-bad fixture
+        run: |
+          set -e
+          python - <<'EOF'
+          from pathlib import Path
+          from gbg.ags import logs_from_ags
+          from gbg.config import Gates
+          from gbg.evals import evaluate
+          from gbg.extract import MockExtractor
+          gold = {l.bgs_id: l for l in logs_from_ags(Path("tests/fixtures/sample_ags4.ags").read_text(), {"BH01": 1001, "BH02": 1002})}
+          ex = MockExtractor(Path("tests/fixtures/extractions"))
+          preds = {b: ex.extract(b, []) for b in gold}
+          r = evaluate(gold, preds, Gates(0.25, 0.85, 0.80, 2), ex.source)
+          print(r.to_markdown())
+          assert not r.gates_passed, "gate should fail on the known-bad fixture"
+          EOF
+
+  pages:
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    # One deployment at a time, and never cancel one that is mid-flight.
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/make_sample_voxels.py
+      - uses: actions/configure-pages@v5
+        with:
+          # Create the Pages site, with GitHub Actions as its source, if the
+          # repository does not have one yet.
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      # A green deploy is not a live site. Fetch what is served and check it is
+      # the viewer, giving the CDN a few minutes to pick up a fresh deployment.
+      - name: Verify the served page is the viewer
+        run: |
+          url="${{ steps.deployment.outputs.page_url }}"
+          for attempt in $(seq 1 12); do
+            curl -sSfL "$url" -o "$RUNNER_TEMP/index.html" \
+              && grep -q "The ground beneath Gloucestershire" "$RUNNER_TEMP/index.html" \
+              && break
+            echo "attempt $attempt: $url is not serving the viewer yet"
+            sleep 15
+          done
+          grep -q "The ground beneath Gloucestershire" "$RUNNER_TEMP/index.html"
+          curl -sSfL "${url}data/sample_voxels.json" -o "$RUNNER_TEMP/sample.json"
+          head -c 200 "$RUNNER_TEMP/sample.json" | grep -q '"synthetic":true'

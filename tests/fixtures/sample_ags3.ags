@@ -1,0 +1,10 @@
+"**PROJ"
+"*PROJ_ID","*PROJ_NAME"
+"P2","Old format site"
+
+"**GEOL"
+"*HOLE_ID","*GEOL_TOP","*GEOL_BASE","*GEOL_DESC","*GEOL_LEG"
+"<UNITS>","m","m","",""
+"TP1","0.00","0.50","Brown clayey TOPSOIL","101"
+"TP1","0.50","2.00","Reddish brown MARL (Mercia Mudstone)","201"
+"TP1","2.00","3.50","Red-brown MUDSTONE","301"

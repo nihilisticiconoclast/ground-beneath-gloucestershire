@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "gbg": {
+      "type": "stdio",
+      "command": "gbg-mcp",
+      "args": [],
+      "env": { "GBG_CONFIG": "config/gbg.toml" }
+    }
+  }
+}
