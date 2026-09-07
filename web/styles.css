@@ -58,6 +58,10 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--lias); outline-o
   border: 1px solid var(--ink); border-radius: 2px;
   font-variation-settings: "wdth" 96, "wght" 520;
 }
+/* `display: inline-block` above outranks the user agent's [hidden] rule, so an
+   unflagged model drew an empty bordered box. Only visible once a model that
+   sets no flag existed. */
+.synthetic[hidden] { display: none; }
 
 /* ---------- depth ruler (peel control) */
 .ruler {

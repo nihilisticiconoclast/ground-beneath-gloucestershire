@@ -153,6 +153,66 @@ def gold(
     console.print(f"loaded {total} gold logs; {unmapped} have no BGS id mapping yet (negative ids)")
 
 
+GWBV_SOURCE = "gold:gwbv"
+
+
+@app.command("ags-gold")
+def ags_gold(
+    aoi: str,
+    config: str = CONFIG_OPT,
+    limit: int | None = typer.Option(None, help="Override client.max_scans_per_run"),
+    source: str = typer.Option(GWBV_SOURCE, help="Interval source to store these logs under"),
+) -> None:
+    """Load gold logs from the AGS index's log sheets (see gbg.gwbv).
+
+    `ags_log_url` serves a vector PDF, not AGS text, so the depths and
+    descriptions are read from its text layer. Every outcome is counted:
+    a sheet the service holds no data for is not the same as one that failed
+    to parse, and neither is silently dropped.
+    """
+    from .gwbv import AgsLogFetcher, iter_ags_records
+
+    cfg = _cfg(config)
+    area = cfg.aoi(aoi)
+    con = dbm.connect(cfg.paths.db)
+    cap = limit or cfg.client.max_scans_per_run
+    with PoliteClient(cfg.client) as http:
+        records = iter_ags_records(http, area.bbox_bng)
+        console.print(
+            f"{area.name}: {len(records)} AGS records with a fetchable log inside the "
+            f"BNG rectangle; fetching up to {cap} this run"
+        )
+        fetcher = AgsLogFetcher(http, cfg.paths.ags_logs, max_per_run=cap)
+        stored = no_data = failed = 0
+        depths: list[float] = []
+        for record in records:
+            result = fetcher.fetch(record, source)
+            if result.log is None:
+                if result.note.startswith("no log"):
+                    no_data += 1
+                else:
+                    failed += 1
+                    console.print(f"  {record.loca_id}: [yellow]{result.note}[/]")
+                continue
+            dbm.replace_intervals(con, result.log, source)
+            stored += 1
+            depths.append(result.log.base_depth_m)
+    console.print(
+        f"stored {stored} logs · no log data held: {no_data} · failed: {failed} · "
+        f"requests: {http.request_count}"
+    )
+    if depths:
+        depths.sort()
+        with_gl = con.execute(
+            "SELECT count(*) FROM log_meta WHERE source = ? AND ground_level_m IS NOT NULL",
+            [source],
+        ).fetchone()[0]
+        console.print(
+            f"depth: min {depths[0]:.1f} m · median {depths[len(depths) // 2]:.1f} m · "
+            f"max {depths[-1]:.1f} m · ground level stated on {with_gl} of {stored}"
+        )
+
+
 @app.command()
 def extract(
     aoi: str,

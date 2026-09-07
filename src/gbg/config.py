@@ -27,6 +27,9 @@ class PathsConfig:
     page_images: Path
     extractions: Path
     gold: Path
+    # Cache for the AGS log sheets `ags_log_url` serves (see gbg.gwbv). Defaulted
+    # so a config written before the gold-from-PDF path existed still loads.
+    ags_logs: Path = Path("data/raw/ags_logs")
 
 
 @dataclass(frozen=True)

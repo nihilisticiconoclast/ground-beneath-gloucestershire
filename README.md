@@ -29,16 +29,22 @@ AGS gold logs ──gold──▶ intervals(gold:ags) ◀───────�
 | probe | `gbg probe` | the API answers and the `bbox` parameter changes the answer |
 | enumerate | `gbg enumerate pilot` | every borehole in the tile is indexed; fetched count == API's `numberMatched` |
 | fetch | `gbg fetch-scans pilot` | PDFs cached; HTTP 200 that isn't a PDF is recorded as a failure, not a scan |
-| gold | `gbg gold data/gold/*.ags --id-map data/gold/ids.csv` | measured logs to score against |
+| gold | `gbg gold data/gold/*.ags --id-map data/gold/ids.csv` | measured logs to score against, from AGS files you hold |
+| ags-gold | `gbg ags-gold gloucester` | the same, read from the log sheets `ags_log_url` serves (see `gbg.gwbv`) |
 | extract | `gbg extract pilot --provider ollama` | model output validated against the data contract |
 | eval | `gbg eval` | boundary recall and lithology F1 vs gold; exit 1 if the gate fails |
 | model | `gbg model pilot --tune` | leave-one-borehole-out accuracy beats the nearest-borehole baseline; calibrated; bakes `web/data/model.json` |
 | serve | `gbg-mcp` | an MCP server so an agent can ask the corpus and the model questions |
 
-`web/` renders `web/data/sample_voxels.json` (a synthetic preview, flagged on
-screen) by default and `web/data/model.json` when the model stage has baked
-one: open `index.html?model=data/model.json`. A model baked with failing
-gates or in the depth frame is flagged in the same place.
+`web/` renders `web/data/model.json` — the baked model — and falls back to
+`web/data/sample_voxels.json` (a synthetic preview, flagged on screen) when no
+model has been baked. `index.html?model=<url>` pins a particular one. A model
+baked with failing gates or in the depth frame is flagged in the same place.
+
+Voxels the model has no evidence for are published as `254` (unconstrained),
+never as a class: `argmax` of a flat posterior returns index 0, so anything
+else would print the first class in the vocabulary as though it were a reading.
+The viewer draws them flat grey and the certainty dial clears them first.
 
 ## Seeing it on GitHub Pages
 
@@ -95,6 +101,25 @@ gbg fetch-scans pilot
 Local extraction needs [Ollama](https://ollama.com) and a vision model
 (`ollama pull qwen2.5vl:7b`, or whichever you set in `extraction.ollama_model`).
 Then `gbg extract pilot --provider ollama` and `gbg eval`.
+
+### Getting real ground onto the page, without a vision model
+
+The AGS index's log sheets are vector PDFs with a text layer, so measured
+intervals can be read from them directly. This is the whole gold path, and it
+needs no Ollama and no API key:
+
+```bash
+gbg ags-gold gloucester                 # fetch + parse the tile's AGS log sheets
+gbg model gloucester --source gold:gwbv --tune
+```
+
+Run on 2026-09-07 over the Gloucester / M5 J11 tile: 57 records with a
+fetchable log, 42 parsed (15 are records BGS holds no log for), 290 labelled
+points, leave-one-borehole-out accuracy 86.6% against a 39.3% nearest-borehole
+baseline, calibration 91.9%. All three Stage 2 gates pass. The bake constrains
+1,937 of 17,102 below-ground voxels — 11% — and says so on screen for the
+other 89%. These are shallow site-investigation holes (median 2.7 m); depth
+still needs the scans.
 
 ### The model and the MCP server
 

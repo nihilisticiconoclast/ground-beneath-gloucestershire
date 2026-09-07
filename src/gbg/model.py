@@ -50,6 +50,12 @@ NON_EVIDENCE = {"NO_RECOVERY", "UNKNOWN"}
 MODEL_CLASSES: tuple[str, ...] = tuple(c for c in LITH_CLASSES if c not in NON_EVIDENCE)
 CLASS_INDEX = {c: i for i, c in enumerate(MODEL_CLASSES)}
 AIR = 255
+# Below ground, but no borehole near enough to say what is there. This must be
+# its own value rather than a class: `argmax` of a flat posterior returns index
+# 0, so an unconstrained voxel would otherwise be published as confident
+# TOPSOIL. Observed 2026-09-07 on the first real bake, where 13,894 voxels came
+# out "TOPSOIL" and not one of them was constrained.
+UNCONSTRAINED = 254
 
 
 @dataclass(frozen=True)
@@ -301,6 +307,12 @@ class KernelLithologyModel:
         `surface_fn(easting_array, northing_array) -> elevation_array` gives the
         ground surface per column; voxels whose top is above it are AIR (255).
         In the depth frame pass a function returning zeros and z0 <= -max_depth.
+
+        A below-ground voxel with less than `min_evidence` total weight is
+        UNCONSTRAINED (254), not a class: the honest answer to "what is here?"
+        is "nobody has drilled near enough to say", and a viewer must be able to
+        draw that differently rather than inheriting whichever class happens to
+        sit at index 0.
         """
         x0, y0, x1, y1 = bbox_bng
         nx, ny = int(math.ceil((x1 - x0) / cell_xy)), int(math.ceil((y1 - y0) / cell_xy))
@@ -322,8 +334,10 @@ class KernelLithologyModel:
             proba, evidence = self.predict_proba(pts)
             sl = slice(k * nx * ny, (k + 1) * nx * ny)
             idx = np.arange(nx * ny)[below] + k * nx * ny
-            class_idx[idx] = proba.argmax(axis=1)
             ok = evidence >= self.min_evidence
+            class_idx[idx] = proba.argmax(axis=1)
+            # Never publish a class for a voxel nothing constrains.
+            class_idx[idx[~ok]] = UNCONSTRAINED
             ent = self.entropy(proba)
             ent[~ok] = 1.0
             entropy[idx] = ent

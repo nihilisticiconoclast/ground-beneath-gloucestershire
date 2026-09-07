@@ -23,6 +23,7 @@ raw_scans = "data/raw/scans"
 page_images = "data/derived/pages"
 extractions = "data/derived/extractions"
 gold = "data/gold"
+ags_logs = "data/raw/ags_logs"
 
 # Areas of interest, in British National Grid (EPSG:27700) metres:
 # [min_easting, min_northing, max_easting, max_northing].
@@ -32,6 +33,14 @@ gold = "data/gold"
 # ~5 x 5 km over Stroud (Stroud town centre is about SO 851 051 -> 385100, 205100).
 description = "Stroud pilot tile, 5 km square"
 bbox_bng = [382500, 202500, 387500, 207500]
+
+[aoi.gloucester]
+# Gloucester / Cheltenham, M5 J11. Chosen on 2026-09-07 by ranking every 5 km
+# tile in the county on fetchable AGS gold: 57 logs here against 0 in the
+# Stroud pilot tile, plus 263 SOBI boreholes for the later scan-extraction
+# stage to work on. See docs/DECISIONS.md.
+description = "Gloucester / M5 J11 gold tile, 5 km square"
+bbox_bng = [385000, 220000, 390000, 225000]
 
 [aoi.stroud_valleys]
 description = "Stroud, Nailsworth, Chalford and the Frome valley"

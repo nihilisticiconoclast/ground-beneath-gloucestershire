@@ -187,6 +187,10 @@ def build_server():
         if cls == 255:
             return {"class": "AIR", "surface_m_aod": surface, "note": "above the ground surface at this column"}
         entropy = m["entropy"][idx]
+        if cls == 254:
+            return {"class": None, "constrained": False, "certainty": 0.0, "entropy": entropy,
+                    "surface_m_aod": surface, "model": m.get("name"),
+                    "note": "below ground, but no borehole near enough to say what is here"}
         return {
             "class": m["classes"][cls],
             "certainty": round(1 - entropy, 2),

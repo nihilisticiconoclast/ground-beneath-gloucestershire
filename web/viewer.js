@@ -31,13 +31,24 @@ const LITH_COLOURS = {
   UNKNOWN: "#C9C9C4",
 };
 const AIR = 255;
+// Below ground, but no borehole near enough to say what is there. Drawn in a
+// flat unsaturated grey so it never reads as a lithology, and it is the first
+// thing to vanish when the certainty dial moves.
+const UNCONSTRAINED = 254;
+const UNCONSTRAINED_LABEL = "unconstrained";
+const UNCONSTRAINED_COLOUR = "#DCDAD4";
 const HIDDEN = new THREE.Matrix4().makeScale(0, 0, 0);
+
+const classAt = (model, idx) =>
+  model.class_idx[idx] === UNCONSTRAINED ? UNCONSTRAINED_LABEL : model.classes[model.class_idx[idx]];
 
 const $ = (id) => document.getElementById(id);
 
-async function loadModel() {
-  const params = new URLSearchParams(location.search);
-  const url = params.get("model") || "data/sample_voxels.json";
+// A baked model takes precedence over the synthetic preview, so the page shows
+// measured ground wherever the pipeline has produced any. ?model=<url> pins one.
+const DEFAULT_MODELS = ["data/model.json", "data/sample_voxels.json"];
+
+async function fetchModel(url) {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`Could not load ${url}: HTTP ${resp.status}`);
   const model = await resp.json();
@@ -46,6 +57,20 @@ async function loadModel() {
     throw new Error(`Model ${url} is malformed: expected ${n} voxels`);
   }
   return model;
+}
+
+async function loadModel() {
+  const pinned = new URLSearchParams(location.search).get("model");
+  const candidates = pinned ? [pinned] : DEFAULT_MODELS;
+  let lastError;
+  for (const url of candidates) {
+    try {
+      return await fetchModel(url);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
 }
 
 function buildScene(canvas) {
@@ -122,9 +147,10 @@ function setup(model, ctx) {
     positions.set([x, y, zw], k * 3);
     matrix.makeTranslation(x, y, zw);
     mesh.setMatrixAt(k, matrix);
-    const cls = model.classes[model.class_idx[idx]];
+    const cls = classAt(model, idx);
     counts[cls] = (counts[cls] || 0) + 1;
-    mesh.setColorAt(k, colour.set(LITH_COLOURS[cls] || LITH_COLOURS.UNKNOWN));
+    mesh.setColorAt(k, colour.set(
+      cls === UNCONSTRAINED_LABEL ? UNCONSTRAINED_COLOUR : (LITH_COLOURS[cls] || LITH_COLOURS.UNKNOWN)));
   });
   mesh.instanceColor.needsUpdate = true;
   scene.add(mesh);
@@ -216,12 +242,14 @@ function setup(model, ctx) {
 
   // ---------- legend, from what is actually in the model
   const legend = $("legend-list");
-  for (const cls of model.classes) {
+  // Unconstrained last: it is usually the largest count, and it is not a rock.
+  for (const cls of [...model.classes, UNCONSTRAINED_LABEL]) {
     if (!counts[cls]) continue;
     const li = document.createElement("li");
     const sw = document.createElement("span");
     sw.className = "swatch";
-    sw.style.background = LITH_COLOURS[cls] || LITH_COLOURS.UNKNOWN;
+    sw.style.background = cls === UNCONSTRAINED_LABEL
+      ? UNCONSTRAINED_COLOUR : (LITH_COLOURS[cls] || LITH_COLOURS.UNKNOWN);
     const name = document.createElement("span");
     name.textContent = cls.toLowerCase().replace("_", " ");
     const count = document.createElement("span");
@@ -251,10 +279,11 @@ function setup(model, ctx) {
     lastHit = hit.instanceId;
     const idx = below[hit.instanceId];
     const i = idx % nx, j = Math.floor(idx / nx) % ny, kz = Math.floor(idx / (nx * ny));
-    const cls = model.classes[model.class_idx[idx]];
+    const cls = classAt(model, idx);
     const e = model.origin_bng[0] + (i + 0.5) * cxy, nn = model.origin_bng[1] + (j + 0.5) * cxy;
     const ztop = z0 + (kz + 1) * cz;
-    $("probe-class").textContent = cls.toLowerCase().replace("_", " ");
+    $("probe-class").textContent = cls === UNCONSTRAINED_LABEL
+      ? "no borehole near enough to say" : cls.toLowerCase().replace("_", " ");
     $("probe-coords").textContent = `E ${e.toFixed(0)}  N ${nn.toFixed(0)}  ·  ${(ztop - cz).toFixed(1)}–${ztop.toFixed(1)} m AOD`;
     $("probe-certainty").textContent = `${((1 - model.entropy[idx]) * 100).toFixed(0)}%`;
     probe.hidden = false;

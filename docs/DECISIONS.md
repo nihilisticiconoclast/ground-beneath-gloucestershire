@@ -4,6 +4,63 @@ Short records: problem, what was measured, what was chosen, what the
 acceptance test is. Add to the top. Abandoned approaches go here too, with
 what they cost.
 
+## 2026-09-07 — Real ground on the page, and the bug that nearly published a lie
+
+**Problem.** Turn the GWBV finding into a model made of measured data, and get
+it in front of a reader.
+
+**Measured.** `gbg ags-gold gloucester`: 57 AGS records with a fetchable log in
+the new tile, **42 parsed**, 15 are records the service holds no log for, 0
+failures, 58 requests. Depths min 0.3 m, median 2.7 m, max 13.0 m; ground level
+stated on all 42. `gbg model gloucester --source gold:gwbv --tune`: 38 of the
+42 yield sample points (four are shallower than the 0.5 m discretisation step),
+290 labelled points, leave-one-borehole-out **accuracy 86.6% against a 39.3%
+nearest-borehole baseline (+47.2 pp)**, calibration **91.9%** at ≥ 80% — all
+three Stage 2 gates pass. The bake constrains **1,937 of 17,102** below-ground
+voxels.
+
+Parser generalisation, measured before any of that: across 40 sheets from 35
+different projects, 35 parsed, and **every one of their final depths equalled
+the `loca_fdep` the AGS index carries independently**. The five that did not
+parse were three the service holds no log for, one carrying an editorial note
+instead of strata, and one HTTP 500.
+
+**The bug.** The first bake published **13,894 voxels as TOPSOIL, and not one
+of them was constrained**. `predict_proba` returns a flat posterior where there
+is no evidence, `argmax` of a flat array returns index 0, and index 0 of
+`MODEL_CLASSES` is TOPSOIL. The page would have shown a 5 km square of invented
+topsoil 30 m thick — a confident wrong value, which CLAUDE.md's fourth
+non-negotiable exists to forbid. The synthetic preview never exposed it because
+every voxel in it was constrained.
+
+**Chosen.**
+
+- `UNCONSTRAINED = 254` in `gbg.model`, set on any below-ground voxel under
+  `min_evidence`. Entropy alone could not carry this: a voxel with just enough
+  evidence to count as constrained can still have a near-flat posterior that
+  rounds to 1.0, so the two sets are not the same and a viewer keying off
+  entropy would mislabel either way. The viewer draws 254 flat grey, names it
+  "unconstrained" in the legend, and the probe says "no borehole near enough to
+  say"; the MCP server returns `class: null` with the same note.
+- The viewer now prefers `data/model.json` and falls back to the synthetic
+  preview, so the page shows measured ground wherever any exists.
+- New AOI `gloucester` [385000, 220000, 390000, 225000], chosen by ranking
+  every 5 km tile in the county on fetchable gold. The Stroud `pilot` AOI is
+  unchanged: `tests/conftest.py` builds its fixtures from that bbox.
+- Synthetic ids for AGS holes are `-(crc32(bgs_loca_id) …)`, following the
+  existing negative-id convention, with an explicit collision check rather than
+  a hope.
+
+**Acceptance test.** 60 tests green, including three real sheets committed as
+fixtures — the happy path, a "no log data" sheet, and the note-only sheet — and
+a model test that bakes below the boreholes and asserts no unconstrained voxel
+carries a class. Live: the published page shows mudstone / clay / made ground /
+limestone over 1,937 voxels and grey over 15,165.
+
+**Cost of anything abandoned.** Nothing abandoned. The TOPSOIL bug cost one
+bake and would have cost the project its credibility, which is the argument for
+looking at the output rather than the gate verdict.
+
 ## 2026-09-07 — `ags_log_url` serves a PDF, and that turns out to be good news
 
 **Problem.** The last unverified item in the gold chain: what

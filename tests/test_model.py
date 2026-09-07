@@ -14,8 +14,8 @@ import random
 import numpy as np
 import pytest
 
-from gbg.model import (AIR, MODEL_CLASSES, BoreholeSite, KernelLithologyModel, discretise,
-                       estimate_ground_levels, kernel_surface, write_model_json)
+from gbg.model import (AIR, MODEL_CLASSES, UNCONSTRAINED, BoreholeSite, KernelLithologyModel,
+                       discretise, estimate_ground_levels, kernel_surface, write_model_json)
 from gbg.schema import BoreholeLog, LithInterval
 
 BBOX = (382500.0, 202500.0, 387500.0, 207500.0)
@@ -158,3 +158,32 @@ def test_bake_matches_viewer_contract(tmp_path):
             assert (block[sure] == MODEL_CLASSES.index("LIMESTONE")).mean() > 0.95
     path = write_model_json(payload, tmp_path / "model.json")
     assert json.loads(path.read_text())["nx"] == 20
+
+
+def test_unconstrained_voxels_are_never_given_a_class():
+    """A voxel nothing constrains must not inherit whichever class sits at index 0.
+
+    `argmax` of a flat posterior returns 0, so before this was fixed the first
+    real bake published 13,894 voxels as confident TOPSOIL, not one of which was
+    constrained. Baking well below the boreholes reproduces that situation.
+    """
+    logs, sites = flat_world(40)
+    samples = discretise(logs.values(), sites)
+    km = KernelLithologyModel(length_h=600.0, length_v=2.5).fit(samples)
+    # The flat world's holes bottom out around 60 m AOD; go 40 m deeper.
+    payload = km.bake(BBOX, cell_xy=250.0, cell_z=5.0, z0=20.0, z1=105.0,
+                      surface_fn=kernel_surface(sites, length_h=600.0), sites=sites, name="test")
+    idx = np.array(payload["class_idx"])
+    ent = np.array(payload["entropy"])
+    below = idx != AIR
+    unconstrained = idx == UNCONSTRAINED
+    assert unconstrained.any(), "expected some voxels out of reach of every borehole"
+
+    # The sentinel, not entropy, is what says "no evidence here". Entropy alone
+    # cannot: a voxel with just enough evidence to be constrained can still have
+    # a near-flat posterior that rounds to 1.0, so the two sets are not equal.
+    assert (ent[unconstrained] == 1.0).all()
+    # Everything else below ground carries a real class index.
+    assert (idx[below & ~unconstrained] < len(MODEL_CLASSES)).all()
+    # "Constrained" counts evidence, and matches the sentinel exactly.
+    assert payload["constrained_voxels"] == int((below & ~unconstrained).sum())
