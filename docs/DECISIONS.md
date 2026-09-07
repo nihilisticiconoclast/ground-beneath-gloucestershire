@@ -4,6 +4,43 @@ Short records: problem, what was measured, what was chosen, what the
 acceptance test is. Add to the top. Abandoned approaches go here too, with
 what they cost.
 
+## 2026-09-07 — `ags_log_url` serves a PDF, and that turns out to be good news
+
+**Problem.** The last unverified item in the gold chain: what
+`ags_log_url` actually returns. `gbg.ags` was written expecting AGS3/AGS4
+text, on an explicitly recorded assumption.
+
+**Measured.** Fetched the deepest AGS record in the Gloucester/M5 J11
+candidate tile (`BH03`, `loca_fdep` 13.0 m, project "Area 2 - Golden Valley
+Bridge M5 J11"). The URL redirects to
+`webservices.bgs.ac.uk/GWBV/viewborehole?loca_id=…` and returns
+`application/pdf`, 13,668 bytes. `logs_from_ags` fails on it, as it must.
+But `pymupdf` finds a full text layer — no raster, no OCR — carrying the
+log's `Depth (m)` boundaries (0.50, 0.95, 4.85, 4.95), `Level (m)` in m AOD
+(30.60, 30.15, 26.25, 26.15 — so ground level is 31.10 m AOD for this hole,
+derivable per borehole), and complete stratum descriptions such as "Hard
+Extremely weak fissured dark grey silty CLAY MUDSTONE" and "Strong grey
+fossiliferous LIMESTONE with frequent … fossil fragments". Extracted text is
+not in reading order, so columns must be aligned by coordinate.
+
+**Chosen.** Nothing yet — this is recorded before any code changes because it
+invalidates a documented assumption rather than confirming one. The
+consequence to weigh: gold labels are obtainable from these PDFs by plain
+text extraction, with no vision model, no Ollama and no API key, which is a
+far shorter path to a real model than scan extraction. It is also *narrower*:
+these are shallow site-investigation holes (13.0 m at the deepest in that
+tile, 25.0 m county-wide) against SOBI scans reaching 131 m in the Stroud
+tile. Depth still needs the scans.
+
+**Acceptance test.** None yet; nothing was changed. When a parser exists, the
+test is that it reproduces the four boundary depths and levels above from
+this exact PDF, and that `gbg.lithology.normalise` maps its descriptions to
+CLAY / MUDSTONE / LIMESTONE.
+
+**Cost of anything abandoned.** The AGS-text assumption in `gbg.ags` and the
+`gbg gold` command built on it are not wrong for AGS files a user supplies by
+hand, but they cannot be fed from this API. Two requests to find out.
+
 ## 2026-09-07 — First live BGS run; the pilot tile has no usable gold
 
 **Problem.** The viewer was showing the synthetic preview because the corpus

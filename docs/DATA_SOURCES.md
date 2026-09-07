@@ -71,8 +71,26 @@ Sample record (verbatim, id 1):
   `item_index_id`, `ags_log_url`, `dad_item_url`.
 - BGS describes it as third-party site-investigation data "delivered as
   received"; no BGS interpretation added.
-- *Unverified*: the format served at `ags_log_url` (AGS3/AGS4 text, zip, or
-  HTML). `gbg.ags` parses AGS4 `GROUP GEOL` and AGS3 `**GEOL`.
+- **Verified 2026-09-07: `ags_log_url` does not serve AGS text.** It is a
+  `https://webservices.bgs.ac.uk/GWBV/viewborehole?loca_id={bgs_loca_id}` link
+  that returns `content-type: application/pdf` — a one-page log sheet
+  auto-generated from the AGS file, whose own footer says it "does not
+  necessarily include all of the information supplied in the original AGS
+  file". `gbg.ags` cannot read it (it fails in the csv reader on binary
+  input), so `gbg gold` as written cannot consume this endpoint.
+- The good news, same check: that PDF is **vector, with a full text layer** —
+  no OCR and no vision model needed. `pymupdf` recovers the log's columns:
+  `Depth (m)` boundaries, `Level (m)` in m AOD (so ground level is derivable
+  per hole), and the full `Stratum Description` text
+  ("Hard Extremely weak fissured dark grey silty CLAY MUDSTONE", "Strong grey
+  fossiliferous LIMESTONE …"), which is exactly what `gbg.lithology.normalise`
+  consumes. Text order is not reading order, so a parser must align the
+  columns by coordinate rather than by line.
+- Coverage trap, 2026-09-07: `ags_log_url` is populated on 828 of the 1,426
+  AGS records in the county envelope, but on **0 of the 38** in the Stroud
+  pilot tile — while the *SOBI* index carries an `ags_log_url` for 19 records
+  over that same ground. The two collections disagree about the same holes;
+  do not assume the AGS index is the better source of AGS links.
 - Also available: the AGS File Utilities API `https://agsapi.bgs.ac.uk/`
   (validation/conversion; spatial export reportedly capped at 50 boreholes).
 
