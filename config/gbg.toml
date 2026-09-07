@@ -7,7 +7,7 @@
 [client]
 # BGS asks that automated clients identify themselves. Put a real contact in here
 # before your first run; it is sent as the User-Agent on every request.
-user_agent = "ground-beneath-gloucestershire/0.1 (+https://github.com/nihilisticiconoclast/ground-beneath-gloucestershire; contact: YOUR-EMAIL-HERE)"
+user_agent = "ground-beneath-gloucestershire/0.2 (+https://github.com/nihilisticiconoclast/ground-beneath-gloucestershire; contact: https://github.com/nihilisticiconoclast/ground-beneath-gloucestershire/issues)"
 # Polite crawl. BGS's fair-use policy reserves the right to rate-limit or block
 # IPs that create "excessive load". 0.5 req/s is one request every two seconds.
 requests_per_second = 0.5

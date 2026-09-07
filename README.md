@@ -131,11 +131,16 @@ responses in [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)):
 
 Not yet verified — do these on the first live run and tick them off:
 
-- [ ] `gbg probe` shows different counts for pilot / valleys / county (bbox honoured)
-- [ ] `gbg enumerate pilot` finishes without `CompletenessError` — record the count in docs/DECISIONS.md
+- [x] `gbg probe` shows different counts for pilot / valleys / county (bbox honoured) —
+      177 / 737 / 19,335 on 2026-09-07
+- [x] `gbg enumerate pilot` finishes without `CompletenessError` — 176 stored, 1
+      envelope-only record dropped, 2 requests, on 2026-09-07
 - [ ] what the scans API returns for a record with no scan (404? 200+HTML?) — `gbg fetch-scans` records it either way
 - [ ] whether `length_scan_cat` ending `_Y` means "scan available" (compare against fetch outcomes)
-- [ ] what `ags_log_url` on the AGS index actually serves (an .ags file? a zip? a page?) — `gbg gold` expects AGS text
+- [ ] what `ags_log_url` on the AGS index actually serves (an .ags file? a zip? a page?) — `gbg gold` expects AGS text.
+      Partly answered 2026-09-07: it is *null* on all 38 AGS records in the pilot
+      tile, and populated on 346 of a 500-record county sample, so there is
+      nothing to fetch in the pilot tile. The payload format is still unverified.
 - [ ] the BGS scanned-record licence line to use in the viewer credit (currently "Contains British Geological Survey materials © UKRI 2026")
 - [ ] email enquiries@bgs.ac.uk describing the project and asking whether a county-scale bulk cut is available, before scaling past the pilot
 

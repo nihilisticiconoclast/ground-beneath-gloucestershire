@@ -4,6 +4,59 @@ Short records: problem, what was measured, what was chosen, what the
 acceptance test is. Add to the top. Abandoned approaches go here too, with
 what they cost.
 
+## 2026-09-07 — First live BGS run; the pilot tile has no usable gold
+
+**Problem.** The viewer was showing the synthetic preview because the corpus
+was empty, and nobody had checked whether the Stroud pilot tile can produce a
+real model at all. The scaffold entry below records why: the sandbox that built
+it could not reach BGS, so Stage 0 was never run. This environment can.
+
+**Measured.** All against the live API on 2026-09-07, through `PoliteClient`
+at the configured 0.5 req/s.
+
+- `gbg probe`: pilot 177, stroud_valleys 737, gloucestershire 19,335. The bbox
+  parameter is honoured. Whole-collection `numberMatched` is still 1,358,783,
+  unchanged from 2026-09-06.
+- `gbg enumerate pilot`: 176 boreholes stored inside the BNG rectangle, 1
+  envelope-only record dropped, 2 requests, no `CompletenessError`. The dropped
+  record is the corner over-selection case `tests/conftest.py` was built around,
+  observed for the first time against real data.
+- Depth in the tile: 106 of 176 carry a recorded length, 12 are the `-2.0`
+  sentinel. Median 3.81 m, max 131.06 m; 36 are ≥ 5 m, 20 ≥ 10 m, 8 ≥ 30 m.
+  Over 25 km² that is about 1.4 boreholes ≥ 5 m per km², against the Stage 1→2
+  gate's ≥ 3 per km².
+- **Gold in the tile: none usable.** `agsboreholeindex` returns 38 records for
+  the pilot bbox. Every one belongs to the "Cotswold Canals" project;
+  `loca_fdep` has median 1.03 m and max 4.0 m; and 0 of 38 carry an
+  `ags_log_url` or a `dad_item_url`. There is nothing to download, and nothing
+  deep enough to constrain bedrock that starts ~20 m down. The Stage 0 gate
+  needs ≥ 20 gold boreholes, so it cannot be scored in this tile at all.
+- County-wide the gold does exist: 1,426 AGS records in the county envelope,
+  and 346 of a 500-record sample carry an `ags_log_url`. Depths are still
+  shallow (median 2.0 m, max 25.0 m, 114 of 500 ≥ 5 m). Largest projects:
+  M4/M5 Improvements (119), Cotswold Canals (72), M5 J13–14 (40).
+- **A trap worth recording:** `ags_log_url` is populated on 19 of the 176 SOBI
+  records in the tile while being null on all 38 records the *AGS* index
+  returns for the same ground. The two collections disagree, and for this tile
+  SOBI is the better source of AGS links. `gbg gold` currently expects the AGS
+  index; that assumption is wrong here.
+- No extraction provider in this environment: nothing on `localhost:11434`,
+  `ANTHROPIC_API_KEY` unset. The scan-extraction route cannot run here.
+
+**Chosen.** `client.user_agent` now identifies the client with the
+repository's issue tracker as the contact, replacing the placeholder, so no
+personal address is sent to BGS. Nothing else is chosen yet: the AOI question
+this raises is recorded here rather than answered quietly, because moving the
+AOI changes what every later stage is scored on.
+
+**Acceptance test.** Two Stage 0 checkboxes tick in README: probe shows
+different counts per AOI, and enumerate satisfied the completeness oracle.
+Both observed 2026-09-07.
+
+**Cost of anything abandoned.** Nothing abandoned. Establishing that the pilot
+tile cannot clear the Stage 0 gate cost two requests, which is cheaper than
+discovering it after building an extraction pipeline against it.
+
 ## 2026-09-07 — The viewer is actually live
 
 **Problem.** The previous entry's acceptance test was unobserved: the workflow
