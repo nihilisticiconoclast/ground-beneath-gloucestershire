@@ -4,6 +4,43 @@ Short records: problem, what was measured, what was chosen, what the
 acceptance test is. Add to the top. Abandoned approaches go here too, with
 what they cost.
 
+## 2026-09-07 — The viewer is actually live
+
+**Problem.** The previous entry's acceptance test was unobserved: the workflow
+existed only on a branch, so it had never run. GitHub also refuses a
+`workflow_dispatch` for a workflow absent from the default branch (404), so
+the deploy could not be started from the branch either.
+
+**Measured.** With the Pages source set to GitHub Actions and the branch
+fast-forwarded into `main`, run
+[34095043122](https://github.com/nihilisticiconoclast/ground-beneath-gloucestershire/actions/runs/34095043122)
+finished green: `test` in 53 s (49 tests, the model smoke run, the viewer
+wiring check and the known-bad eval fixture), then `pages` in 18 s, its own
+verify step included. Checked independently of the run afterwards:
+`/` returns 200 with `<title>The Ground Beneath Gloucestershire</title>`;
+`viewer.js` (11,119 B), `styles.css` (6,068 B) and `data/sample_voxels.json`
+(376,491 B) all return 200; the served JSON is byte-identical to the committed
+file and satisfies the viewer's contract (48,000 = nx·ny·nz voxels, `class_idx`
+and `entropy` both 48,000 long, `surface` 1,600, 33,212 below ground, 38
+boreholes); and `styles.css` line 91 carries `rotate(-90deg)`, so the deployed
+CSS is the fixed slider and not a stale artefact.
+
+**Chosen.** Nothing new. This entry exists only to close the previous one's
+open acceptance test with the numbers.
+
+**Acceptance test.** All of the above, observed 2026-09-07.
+
+**Cost of anything abandoned.** Nothing abandoned.
+
+**Not verified.** A browser completing the page's `unpkg.com` importmap fetch
+end to end. This sandbox's Chromium cannot egress — every HTTPS connection it
+opens is reset by the agent proxy (`net::ERR_CONNECTION_RESET`), including one
+to the live site itself — so the render check was run against a local mirror of
+the bytes Pages serves, with the two three.js files fetched by `curl` from the
+exact URLs the live importmap names (both 200). Legend, both sliders and the
+hover probe worked on that mirror. Opening the URL in a real browser is the
+one-second check nobody in this sandbox can make.
+
 ## 2026-09-06 — Repository unpacked; viewer published from CI
 
 **Problem.** The repository held the project as an uploaded zip plus three
