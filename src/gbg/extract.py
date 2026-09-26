@@ -135,18 +135,38 @@ class OllamaExtractor:
         return to_log(parse_model_json(text), bgs_id, self.source)
 
 
+class ExtractionRefused(RuntimeError):
+    """The model declined the request rather than returning a log."""
+
+
+class ExtractionTruncated(RuntimeError):
+    """The reply hit `max_tokens`; the JSON it carries is cut off, not wrong."""
+
+
 @dataclass
 class AnthropicExtractor:
     model: str
+    # A long log can run to a lot of JSON, and a reply that hits the ceiling is
+    # truncated mid-object — which surfaces as an unreadable-JSON error three
+    # frames away unless it is caught here.
+    max_tokens: int = 16000
+    # Injectable so the failure paths can be tested without the optional
+    # `anthropic` dependency, a key, or a network call.
+    client: object | None = None
 
     @property
     def source(self) -> str:
         return f"extract:anthropic/{self.model}"
 
-    def extract(self, bgs_id: int, page_images: list[Path]) -> BoreholeLog:
+    def _client(self):
+        if self.client is not None:
+            return self.client
         import anthropic  # optional dependency: pip install "gbg[llm]"
 
-        client = anthropic.Anthropic()
+        return anthropic.Anthropic()
+
+    def extract(self, bgs_id: int, page_images: list[Path]) -> BoreholeLog:
+        client = self._client()
         content: list[dict] = []
         for p in page_images:
             content.append(
@@ -160,10 +180,25 @@ class AnthropicExtractor:
                 }
             )
         content.append({"type": "text", "text": PROMPT})
+        # No `temperature`: current-generation models reject sampling parameters
+        # outright (HTTP 400), so sending one would break this path the moment
+        # `extraction.anthropic_model` is pointed at a newer model.
         msg = client.messages.create(
-            model=self.model, max_tokens=4000, temperature=0,
+            model=self.model, max_tokens=self.max_tokens,
             messages=[{"role": "user", "content": content}],
         )
+        stop = getattr(msg, "stop_reason", None)
+        if stop == "refusal":
+            details = getattr(msg, "stop_details", None)
+            raise ExtractionRefused(
+                f"{self.model} declined borehole {bgs_id}"
+                + (f" ({getattr(details, 'category', None)})" if details else "")
+            )
+        if stop == "max_tokens":
+            raise ExtractionTruncated(
+                f"reply for borehole {bgs_id} hit max_tokens={self.max_tokens}; "
+                "raise it rather than trusting the partial log"
+            )
         text = "".join(block.text for block in msg.content if getattr(block, "type", "") == "text")
         return to_log(parse_model_json(text), bgs_id, self.source)
 

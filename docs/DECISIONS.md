@@ -63,6 +63,28 @@ verified, 0 unstamped, 0 disagreements.
 was considered and dropped on the numbers above before it was written, which is
 the cheapest way to abandon something.
 
+**Also fixed, in the extraction path nobody has run yet.** Since the scans are
+where the project goes next, `AnthropicExtractor` was checked against the
+current API rather than left to fail on its first real invocation. Three
+faults, all latent:
+
+- `temperature=0` — accepted by `claude-sonnet-4-6`, but sampling parameters
+  are **rejected with a 400 by every current-generation model**, so the path
+  would have broken the moment `extraction.anthropic_model` was pointed at a
+  newer one. Now sends none.
+- `max_tokens=4000` — a long log's JSON can exceed that, and the reply would
+  come back truncated mid-object, surfacing as an unreadable-JSON error several
+  frames away. Raised to 16,000, and `stop_reason == "max_tokens"` now raises
+  `ExtractionTruncated`, which says the log is cut off rather than wrong.
+- A refusal was read as a malformed log. `stop_reason == "refusal"` now raises
+  `ExtractionRefused` with the category.
+
+The client is injectable, so all three paths are tested with a stub — no
+optional dependency, no key, no network. `extraction.anthropic_model` itself is
+left as the author set it; the comment beside it now records that it is
+previous-generation and that reading a century-old handwritten log is the kind
+of task the Opus tier exists for.
+
 ## 2026-09-07 — Real ground on the page, and the bug that nearly published a lie
 
 **Problem.** Turn the GWBV finding into a model made of measured data, and get

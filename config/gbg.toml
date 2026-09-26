@@ -56,6 +56,12 @@ bbox_bng = [350000, 175000, 430000, 245000]
 provider = "mock"
 ollama_model = "qwen2.5vl:7b"
 ollama_url = "http://localhost:11434"
+# Previous-generation, still served. Checked 2026-09-26 and left as chosen.
+# Current-generation IDs are claude-opus-5, claude-sonnet-5, claude-haiku-4-5;
+# reading a century-old handwritten log is the kind of hard vision task the
+# Opus tier is for, so try it before concluding extraction cannot clear the
+# gate. Swapping this value is safe: gbg.extract sends no sampling parameters,
+# which current models reject outright.
 anthropic_model = "claude-sonnet-4-6"
 render_dpi = 150
 

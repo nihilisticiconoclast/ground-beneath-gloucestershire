@@ -193,3 +193,72 @@ def test_evaluate_passes_when_only_the_good_borehole_is_in_gold(gates):
     report = evaluate(gold, {1001: preds[1001]}, gates, source="extract:mock/fixture")
     assert report.gates_passed is True
     assert report.lithology_f1 == pytest.approx(1.0)
+
+
+# ------------------------------------------- the Anthropic extraction path
+#
+# Exercised with a stub client, so these run without the optional `anthropic`
+# dependency, without a key and without a network call. What they pin down is
+# the failure handling: a reply that stopped early carries JSON that is cut
+# off, not JSON that is wrong, and the difference matters three frames away.
+
+
+class _StubMessage:
+    def __init__(self, text: str, stop_reason: str = "end_turn", category: str | None = None):
+        self.content = [type("Block", (), {"type": "text", "text": text})()]
+        self.stop_reason = stop_reason
+        self.stop_details = (
+            type("Details", (), {"category": category})() if category else None
+        )
+
+
+class _StubClient:
+    """Records the request and replays one canned message."""
+
+    def __init__(self, message: _StubMessage):
+        self._message = message
+        self.kwargs: dict = {}
+        self.messages = self
+
+    def create(self, **kwargs):
+        self.kwargs = kwargs
+        return self._message
+
+
+GOOD_JSON = (
+    '{"intervals": [{"top_m": 0.0, "base_m": 1.5, "lith_class": "CLAY", '
+    '"raw_description": "Firm brown CLAY", "confidence": 0.9}], "total_depth_m": 1.5}'
+)
+
+
+def test_anthropic_extractor_reads_a_log_and_sends_no_sampling_parameters():
+    from gbg.extract import AnthropicExtractor
+
+    stub = _StubClient(_StubMessage(GOOD_JSON))
+    ex = AnthropicExtractor(model="claude-sonnet-4-6", client=stub)
+    log = ex.extract(4242, [])
+
+    assert log.bgs_id == 4242 and ex.source == "extract:anthropic/claude-sonnet-4-6"
+    assert [(i.top_m, i.base_m, i.lith_class) for i in log.intervals] == [(0.0, 1.5, "CLAY")]
+    # Current-generation models reject temperature/top_p/top_k with a 400, so
+    # this path must not send them at all.
+    assert "temperature" not in stub.kwargs
+    assert "top_p" not in stub.kwargs and "top_k" not in stub.kwargs
+    assert stub.kwargs["max_tokens"] >= 16000
+
+
+def test_a_truncated_reply_is_not_mistaken_for_a_short_log():
+    from gbg.extract import AnthropicExtractor, ExtractionTruncated
+
+    cut = GOOD_JSON[: len(GOOD_JSON) // 2]
+    ex = AnthropicExtractor(model="m", client=_StubClient(_StubMessage(cut, "max_tokens")))
+    with pytest.raises(ExtractionTruncated, match="max_tokens"):
+        ex.extract(1, [])
+
+
+def test_a_refusal_says_so_rather_than_failing_on_the_json():
+    from gbg.extract import AnthropicExtractor, ExtractionRefused
+
+    stub = _StubClient(_StubMessage("I can't help with that.", "refusal", category="cyber"))
+    with pytest.raises(ExtractionRefused, match="declined borehole 7"):
+        AnthropicExtractor(model="m", client=stub).extract(7, [])
