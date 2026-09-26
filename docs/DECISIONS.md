@@ -4,6 +4,65 @@ Short records: problem, what was measured, what was chosen, what the
 acceptance test is. Add to the top. Abandoned approaches go here too, with
 what they cost.
 
+## 2026-09-26 — The gold route has a ceiling, and the scans are what they were said to be
+
+**Problem.** The published model is the top 13 m of one 5 km tile with 89% of
+its volume unconstrained. Before writing any more code, find out whether more
+gold would fix that, and what the scans actually are.
+
+**Measured.**
+
+*The gold ceiling.* Across the whole county envelope, 1,426 AGS records, 828
+with a fetchable log. Median depth **2.0 m**. Only **34 reach 20 m, 7 reach
+50 m, 3 reach 100 m**. Ranking every 5 km tile by deep gold, the best holds 7
+logs ≥ 20 m (Swindon, max 20.5 m); the deepest tiles hold 2–3 such logs each
+and they are isolated old water wells, not a cluster. There is no tile in
+Gloucestershire where AGS gold alone can constrain a column deeper than a few
+tens of metres. **Harvesting more gold buys density in the top few metres and
+no depth at all.** That closes off "just fetch more logs" as the way forward.
+
+*The scans.* First live fetch, 25 from the pilot tile ordered deepest first,
+0 failures; plus 6 deliberate misses.
+
+- A record with no scan returns **HTTP 404 with `application/json`**, not the
+  200-with-HTML trap the fetcher was built to catch.
+- `length_scan_cat` ending `_N` means no scan: 6 of 6 `_N` gave 404 against 25
+  of 25 `_Y` giving a PDF.
+- The pages are **raster** — a PNG of the log sheet per page, around
+  2,400 × 3,700 — so extraction needs OCR or a vision model, as the project
+  always assumed. A first pass wrongly read them as having a text layer because
+  every page carries ~115 characters; that turned out to be a stamped identity
+  block, not the log. Reading the text before believing the count is what
+  caught it.
+- The deepest scan in the pilot tile is **131.06 m**, against 13.0 m for the
+  best gold anywhere in the tile. The scans are where the depth is.
+- This environment has **no OCR tooling at all** — no tesseract, no
+  pytesseract, no easyocr, not even Pillow — so extraction cannot run here.
+  That is a fact about the sandbox, not about the project.
+
+**Chosen.** `gbg.scans.read_stamp` plus an identity check in `ScanFetcher`, and
+a `gbg verify-scans` command that re-reads the whole cache offline. A scan was
+previously trusted because of its filename alone; nothing would have
+distinguished a mis-served or mis-filed PDF from a good one, which is precisely
+the kind of silent failure the second non-negotiable exists to prevent. A PDF
+whose stamp names another borehole is refused *and deleted*, because a cached
+bad file would be read straight back on the next run and never re-requested. A
+scan with no stamp is counted as unverified rather than assumed good.
+
+Deliberately **not** claimed: the stamp is not an independent position. It
+agreed with the SOBI index on id and reference 25 times out of 25 and on
+position to 0.0 m, which is what one database looks like, not two.
+
+**Acceptance test.** 63 tests green, three of them new: the stamp is read from
+the block quoted verbatim off scan 270686, an unstamped PDF reads as
+unverified rather than broken, and a PDF stamped with another borehole's id is
+refused and leaves nothing in the cache. Live: `gbg verify-scans` reports 25
+verified, 0 unstamped, 0 disagreements.
+
+**Cost of anything abandoned.** No code abandoned. The county-wide gold harvest
+was considered and dropped on the numbers above before it was written, which is
+the cheapest way to abandon something.
+
 ## 2026-09-07 — Real ground on the page, and the bug that nearly published a lie
 
 **Problem.** Turn the GWBV finding into a model made of measured data, and get

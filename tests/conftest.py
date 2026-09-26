@@ -31,6 +31,21 @@ TINY_PDF = (
 )
 
 
+def stamped_pdf(text: str) -> bytes:
+    """A one-page PDF carrying `text`, for the scan identity-stamp tests.
+
+    Real BGS scans are raster images of the log with one block of real text
+    stamped on each page (see gbg.scans). Only that block is machine-readable,
+    so it is all a fixture needs to carry.
+    """
+    import pymupdf
+
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((60, 80), text, fontsize=9)
+    return doc.tobytes()
+
+
 def feature(bgs_id: int, easting: float, northing: float, length: float, name: str = "TEST BH") -> dict:
     lon, lat = bng_to_wgs84(easting, northing)
     return {

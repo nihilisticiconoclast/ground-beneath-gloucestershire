@@ -5,10 +5,10 @@ import pytest
 from gbg import db as dbm
 from gbg.bng import bng_bbox_to_wgs84, bng_to_wgs84, in_bbox, wgs84_to_bng
 from gbg.http import PoliteClient
-from gbg.scans import ScanFetcher
+from gbg.scans import ScanFetcher, read_stamp
 from gbg.sobi import CompletenessError, SobiClient, parse_feature
 
-from conftest import PILOT_FEATURES, FakeBGS, feature
+from conftest import PILOT_FEATURES, FakeBGS, feature, stamped_pdf
 
 
 # ------------------------------------------------------------------ config
@@ -143,3 +143,46 @@ def test_scan_fetcher_distinguishes_pdf_from_200_html_and_caps_the_run(tmp_path,
     assert cached.ok and cached.note == "cached"
     scan_calls = [u for u in fake_bgs.requests if "sobi-scans" in u]
     assert len(scan_calls) == 2
+    # The fixture PDF carries no identity stamp, so it is unverified — which is
+    # counted, not treated as a failure.
+    assert good.stamp is None
+
+
+# ----------------------------------------------------- scan identity stamps
+
+
+def test_read_stamp_reads_the_block_bgs_prints_on_every_page(tmp_path):
+    """Text quoted verbatim from scan 270686, fetched 2026-09-26."""
+    path = tmp_path / "stamped.pdf"
+    path.write_bytes(stamped_pdf(
+        "BGS ID: 270686 : BGS Reference: SO80SW28\n"
+        "British National Grid (27700) : 382930,204720\n"
+        "Contact BGS: ngdc@bgs.ac.uk\n"))
+    stamp = read_stamp(path)
+    assert stamp.bgs_id == 270686
+    assert stamp.reference == "SO80SW28"
+    assert (stamp.easting, stamp.northing) == (382930.0, 204720.0)
+
+
+def test_a_scan_with_no_stamp_reads_as_unverified_not_broken(tmp_path):
+    path = tmp_path / "bare.pdf"
+    path.write_bytes(stamped_pdf("a page of nothing in particular"))
+    assert read_stamp(path) is None
+
+
+def test_a_scan_stamped_with_another_borehole_is_refused_and_not_cached(tmp_path, client_cfg):
+    """A PDF filed under the wrong id must not survive to be read from cache."""
+    import httpx
+
+    wrong = stamped_pdf("BGS ID: 999999 : BGS Reference: XX99XX9\n"
+                        "British National Grid (27700) : 100000,200000\n")
+
+    def handler(request):
+        return httpx.Response(200, content=wrong, headers={"content-type": "application/pdf"})
+
+    with PoliteClient(client_cfg, transport=httpx.MockTransport(handler)) as http:
+        result = ScanFetcher(http, tmp_path / "scans", max_per_run=2).fetch(1001)
+    assert not result.ok
+    assert "999999" in result.note and "1001" in result.note
+    assert result.path is None
+    assert not (tmp_path / "scans" / "1001.pdf").exists()

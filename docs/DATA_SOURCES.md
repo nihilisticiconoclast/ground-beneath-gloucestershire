@@ -59,9 +59,37 @@ Sample record (verbatim, id 1):
 - Endpoint pattern (from `scan_url`): `https://api.bgs.ac.uk/sobi-scans/v1/borehole/scans/items/{bgs_id}`
 - Delivers multi-page PDFs (BGS, 2023: "generating multi-page PDFs … with no limitation on size").
 - BGS states over one million borehole log scans are free under OGL.
-- *Unverified*: response for an id with no scan; content-type header; whether
-  `Accept: application/pdf` is needed. `gbg.scans` checks the body starts
-  with `%PDF-` regardless of headers and records every outcome.
+**Verified 2026-09-26 on the first live fetch** (25 scans from the Stroud pilot
+tile, plus 6 deliberate misses):
+
+- A `bgs_id` with no scan returns **HTTP 404 with `application/json`** (~189
+  bytes). It is not the 200-plus-HTML trap `gbg.scans` was built to catch, but
+  that guard stays: it costs nothing and the absence of a trap today is not a
+  promise about tomorrow.
+- `length_scan_cat` ending **`_N` means no scan**: 6 of 6 `_N` records returned
+  404 where 25 of 25 `_Y` records returned a PDF. Small sample on the `_N`
+  side; treat as a strong prior, not a law. The leading digit (`0`, `1`, `2`,
+  `3`, `-2` seen) is still unexplained.
+- `Accept: application/pdf` is sent and works; no fallback was needed.
+- Pages observed 1–8, files 141 kB – 1.9 MB.
+- **The pages are raster.** Each is a PNG of the original log sheet (typically
+  ~2,400 × 3,700), so reading one needs OCR or a vision model. This is the
+  project's thesis, now confirmed rather than assumed.
+- **Except for one stamped text block**, present on every page:
+
+  ```
+  BGS ID: 270686 : BGS Reference: SO80SW28
+  British National Grid (27700) : 382930,204720
+  Contact BGS: ngdc@bgs.ac.uk
+  ```
+
+  `gbg.scans.read_stamp` reads it, and `ScanFetcher` refuses a PDF whose stamp
+  names a different borehole. It is **not** an independent position: across the
+  first 25 scans the stamp matched the SOBI index on id and reference every
+  time and on position to **0.0 m**, which says both come from one database. It
+  verifies identity, and identity is what a cache filed by filename cannot.
+- Deepest scan in the pilot tile: 131.06 m (`bgs_id` 270686, `3_Y`) — depth the
+  AGS gold route cannot reach anywhere in the county.
 
 ## 3. AGS borehole index — the gold labels
 

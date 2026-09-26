@@ -29,6 +29,7 @@ AGS gold logs ──gold──▶ intervals(gold:ags) ◀───────�
 | probe | `gbg probe` | the API answers and the `bbox` parameter changes the answer |
 | enumerate | `gbg enumerate pilot` | every borehole in the tile is indexed; fetched count == API's `numberMatched` |
 | fetch | `gbg fetch-scans pilot` | PDFs cached; HTTP 200 that isn't a PDF is recorded as a failure, not a scan |
+| verify | `gbg verify-scans` | every cached scan is the borehole it is filed under, checked against the stamp on the page |
 | gold | `gbg gold data/gold/*.ags --id-map data/gold/ids.csv` | measured logs to score against, from AGS files you hold |
 | ags-gold | `gbg ags-gold gloucester` | the same, read from the log sheets `ags_log_url` serves (see `gbg.gwbv`) |
 | extract | `gbg extract pilot --provider ollama` | model output validated against the data contract |
@@ -160,8 +161,11 @@ Not yet verified — do these on the first live run and tick them off:
       177 / 737 / 19,335 on 2026-09-07
 - [x] `gbg enumerate pilot` finishes without `CompletenessError` — 176 stored, 1
       envelope-only record dropped, 2 requests, on 2026-09-07
-- [ ] what the scans API returns for a record with no scan (404? 200+HTML?) — `gbg fetch-scans` records it either way
-- [ ] whether `length_scan_cat` ending `_Y` means "scan available" (compare against fetch outcomes)
+- [x] what the scans API returns for a record with no scan — **HTTP 404 with
+      `application/json`**, on 6 of 6 tried, 2026-09-26
+- [x] whether `length_scan_cat` ending `_Y` means "scan available" — yes: 25 of
+      25 `_Y` returned a PDF, 6 of 6 `_N` returned 404. The leading digit is
+      still unexplained.
 - [ ] what `ags_log_url` on the AGS index actually serves (an .ags file? a zip? a page?) — `gbg gold` expects AGS text.
       Partly answered 2026-09-07: it is *null* on all 38 AGS records in the pilot
       tile, and populated on 346 of a 500-record county sample, so there is

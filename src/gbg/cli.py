@@ -153,6 +153,61 @@ def gold(
     console.print(f"loaded {total} gold logs; {unmapped} have no BGS id mapping yet (negative ids)")
 
 
+@app.command("verify-scans")
+def verify_scans(config: str = CONFIG_OPT) -> None:
+    """Re-read every cached scan and check it is the borehole it is filed under.
+
+    Offline and repeatable. A scan is trusted today because of its filename;
+    this reads the identity stamp BGS prints on the page and compares it with
+    both the filename and the SOBI index. Scans carrying no stamp are counted
+    as unverified rather than assumed good.
+    """
+    from .scans import read_stamp
+
+    cfg = _cfg(config)
+    con = dbm.connect(cfg.paths.db)
+    rows = con.execute(
+        "SELECT s.bgs_id, s.path, b.easting, b.northing, b.reference FROM scans s "
+        "LEFT JOIN boreholes b USING (bgs_id) WHERE s.ok AND s.path IS NOT NULL"
+    ).fetchall()
+    verified = unstamped = missing_file = 0
+    problems: list[str] = []
+    for bgs_id, path, easting, northing, reference in rows:
+        p = Path(path)
+        if not p.exists():
+            missing_file += 1
+            problems.append(f"{bgs_id}: recorded at {path} but the file is gone")
+            continue
+        stamp = read_stamp(p)
+        if stamp is None:
+            unstamped += 1
+            continue
+        if stamp.bgs_id != bgs_id:
+            problems.append(f"{bgs_id}: stamp says {stamp.bgs_id} ({stamp.reference})")
+            continue
+        if reference and stamp.reference != reference:
+            problems.append(f"{bgs_id}: stamp reference {stamp.reference} != index {reference}")
+            continue
+        if easting is not None and stamp.easting is not None:
+            d = math.hypot(stamp.easting - easting, stamp.northing - northing)
+            if d > 1.0:
+                problems.append(f"{bgs_id}: stamp position {d:.0f} m from the index position")
+                continue
+        verified += 1
+    table = Table(title="Cached scans")
+    table.add_column("outcome")
+    table.add_column("count", justify="right")
+    table.add_row("identity verified against the stamp", f"{verified:,}")
+    table.add_row("no stamp on the page (unverified)", f"{unstamped:,}")
+    table.add_row("file missing from the cache", f"{missing_file:,}")
+    table.add_row("disagreements", f"{len(problems):,}")
+    console.print(table)
+    for line in problems[:20]:
+        console.print(f"  [red]{line}[/]")
+    if problems:
+        raise typer.Exit(code=1)
+
+
 GWBV_SOURCE = "gold:gwbv"
 
 

@@ -63,6 +63,8 @@ python -m pytest -q                     # no network, ~2 s
 gbg probe                               # is the API up; does bbox change the count
 gbg enumerate pilot && gbg stats
 gbg fetch-scans pilot --limit 20
+gbg verify-scans                        # every cached scan is the borehole it claims to be
+gbg ags-gold gloucester                 # gold from the AGS log sheets (gbg.gwbv), no vision model
 gbg gold data/gold/*.ags --id-map data/gold/ids.csv
 gbg extract pilot --provider ollama
 gbg eval                                # exit code 1 on gate failure
